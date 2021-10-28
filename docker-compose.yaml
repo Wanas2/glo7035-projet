@@ -1,0 +1,28 @@
+version: '3.7'
+services:
+
+  app:
+    build:
+      context: ./app
+      dockerfile: dockerfile-dev
+    depends_on:
+      - mongo_service
+      - neo4j_service
+    environment:
+      - flask_env=dev
+    command: python3 main.py
+    ports:
+    - 80:8080
+    volumes:
+      - ./app/:/app/
+
+  mongo_service:
+    image: "mongo:4.2"
+    expose:
+    - 27017
+    
+  neo4j_service:
+    image: "neo4j:3.5.8"
+    expose:
+    - 7687
+    - 7474
