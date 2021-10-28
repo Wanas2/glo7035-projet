@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, jsonify
 import os
 import json
 
@@ -20,7 +20,7 @@ def index():
                            
 @application.route('/heartbeat')
 def heartbeat():
-    return json.dumps({
+    return jsonify({
         "villeChoisie" : "Sherbrooke"
     })
 
