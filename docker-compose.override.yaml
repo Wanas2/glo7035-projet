@@ -4,15 +4,15 @@ services:
   app:
     build:
       context: ./app
-      dockerfile: dockerfile-prod
+      dockerfile: dockerfile-dev
     depends_on:
       - mongo_service
       - neo4j_service
     environment:
-      - flask_env=prod
+      - flask_env=dev
     command: python3 main.py
     ports:
-    - 80:80
+    - 8080:8080
     volumes:
       - ./app/:/app/
 
