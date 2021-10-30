@@ -4,6 +4,7 @@ from os import listdir, path
 from typing import Tuple
 from hashlib import md5
 import json
+from pathlib import Path
 
 FILENAME = "source_file"
 NOMCOMPLET = "nomComplet"
@@ -12,10 +13,10 @@ STATUS = "file_status"
 HASH = "hash"
 MESSAGE = "message"
 
-DATAPATH = path.abspath(path.join(path.dirname(__file__),'data2'))
+DATAPATH = "/data/"
 mongo_client = MongoClient(host="mongo_service")
-log_collection_pointer = mongo_client['log']
-restaurants_collection_pointer = mongo_client['restaurants']
+log_collection_pointer = mongo_client['7035Projet']['log']
+restaurants_collection_pointer = mongo_client['7035Projet']['restaurants']
 
 
 def get_source_file(data_source_path: str) -> Tuple[str, list]:

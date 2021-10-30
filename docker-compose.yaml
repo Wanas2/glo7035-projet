@@ -34,3 +34,6 @@ services:
     build:
       context: ./etl
       dockerfile: dockerfile
+    volumes:
+    - ./data/:/data/
+    - ./etl/:/app/
