@@ -26,3 +26,14 @@ services:
     expose:
     - 7687
     - 7474
+
+  etlpipeline:
+    depends_on:
+      - mongo_service
+      - neo4j_service
+    build:
+      context: ./etl
+      dockerfile: dockerfile
+    volumes:
+    - ./data/:/data/
+    - ./etl/:/app/
