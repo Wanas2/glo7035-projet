@@ -8,6 +8,7 @@ services:
     depends_on:
       - mongo_service
       - neo4j_service
+      - etlpipeline
     environment:
       - flask_env=prod
     command: python3 main.py
@@ -23,9 +24,11 @@ services:
     
   neo4j_service:
     image: "neo4j:3.5.8"
-    expose:
-    - 7687
-    - 7474
+    ports:
+    - 7687:7687
+    - 7474:7474
+    environment:
+      - NEO4J_AUTH=neo4j/password
 
   etlpipeline:
     depends_on:
