@@ -44,7 +44,7 @@ def extracted_data():
 
     return jsonify({
     "nbRestaurants" : nb_restaurants,
-    "nbsegments" : nb_segments
+    "nbSegments" : nb_segments
     })
     
 
