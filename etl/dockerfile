@@ -2,4 +2,4 @@ FROM python:3.7-slim
 WORKDIR /app
 COPY . .
 RUN pip install -r requirements.txt
-CMD python main.py && python neo4j_etl.py
+CMD python mongo_etl.py && python neo4j_etl.py
