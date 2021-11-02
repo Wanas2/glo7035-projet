@@ -14,6 +14,7 @@ HASH = "hash"
 MESSAGE = "message"
 
 DATAPATH = "/data/"
+RESTAURANTSDATAPATH = "/data/restaurants/"
 CATEGORIESDATAPATH = "/data/categories/"
 mongo_client = MongoClient(host="mongo_service")
 log_collection_pointer = mongo_client['7035Projet']['log']
@@ -81,7 +82,7 @@ def load_categories():
 
 if __name__ == "__main__":
     load_categories()
-    for filename, file_handle in get_source_file(DATAPATH):
+    for filename, file_handle in get_source_file(RESTAURANTSDATAPATH):
 
         log_document = get_log_document_template()
         log_document[FILENAME] = filename
