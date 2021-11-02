@@ -3,6 +3,7 @@ from flask import Flask, jsonify
 import os
 import json
 from typing import Tuple
+from neo4j import GraphDatabase
 
 flask_env = os.getenv('flask_env')
 application = Flask('test_app')
@@ -11,6 +12,8 @@ mongo_client = MongoClient(host="mongo_service")
 log_collection_pointer = mongo_client['7035Projet']['log']
 restaurants_collection_pointer = mongo_client['7035Projet']['restaurants']
 
+driver1 = GraphDatabase.driver("bolt://neo4j_service:7687", auth=("neo4j", "password"))
+ 
 if flask_env == "prod":
     debug = False
     port = 80
@@ -33,9 +36,17 @@ def heartbeat():
 @application.route('/extracted_data')
 def extracted_data():
     nb_restaurants = restaurants_collection_pointer.count()
+
+    with driver1.session() as session:
+        result=list(session.run('match ()-[a]-() return count(a)'))
+        nb_segments=result[0]['count(a)'] 
+        session.close()  
+
     return jsonify({
-        "nbRestaurants" : nb_restaurants
+    "nbRestaurants" : nb_restaurants,
+    "nbsegments" : nb_segments
     })
+    
 
 def get_restaurants_per_category() -> Tuple[str, int]:
     categoriesDistinct = restaurants_collection_pointer.distinct('CategoriesList')
@@ -50,8 +61,15 @@ def transformed_data():
     for category, n in get_restaurants_per_category():
         categoriesDict[category] = n
 
+    with driver1.session() as session:
+        result=list(session.run('match ()-[a]-() return sum(a.SHAPE_Length)'))
+        longueurCyclable = result[0]['sum(a.SHAPE_Length)']
+        session.close()
+
     return jsonify({
-        "restaurants" : categoriesDict
+    "restaurants" : categoriesDict,
+    "longueurCyclable": longueurCyclable
     })
+    
 
 application.run('0.0.0.0',port, debug=debug)
