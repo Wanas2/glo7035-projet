@@ -6,16 +6,12 @@ from hashlib import md5
 import json
 from pathlib import Path
 
+RESTAURANTSDATAPATH = "/data/restaurants/"
+CATEGORIESDATAPATH = "/data/categories/"
 FILENAME = "source_file"
-NOMCOMPLET = "nomComplet"
-MATRICULE = "matricule"
 STATUS = "file_status"
 HASH = "hash"
 MESSAGE = "message"
-
-DATAPATH = "/data/"
-RESTAURANTSDATAPATH = "/data/restaurants/"
-CATEGORIESDATAPATH = "/data/categories/"
 mongo_client = MongoClient(host="mongo_service")
 log_collection_pointer = mongo_client['7035Projet']['log']
 restaurants_collection_pointer = mongo_client['7035Projet']['restaurants']

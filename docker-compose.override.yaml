@@ -32,7 +32,7 @@ services:
     environment:
      - NEO4J_AUTH=neo4j/password
     volumes:
-    - ./database/neo4j:/data/db
+    - ./database/neo4j:/data/databases/graph
 
   etlpipeline:
     depends_on:
