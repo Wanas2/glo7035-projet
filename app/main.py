@@ -62,7 +62,7 @@ def transformed_data():
         categoriesDict[category] = n
 
     with driver1.session() as session:
-        result=list(session.run('match ()-[a]-() return sum(a.SHAPE_Length)'))
+        result=list(session.run('match ()-[a:segment]-() where a.VITESSE<=50 return sum(a.SHAPE_Length)'))
         longueurCyclable = result[0]['sum(a.SHAPE_Length)']
         session.close()
 
