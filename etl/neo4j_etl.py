@@ -49,7 +49,7 @@ if __name__ == "__main__":
     print("====== DEBUG", neo4j_url, neo4j_auth)
 
     data_path = "/data/segments"
-    file_name = "Segmen.geojson"
+    file_name = "Segments.geojson"
 
     neo4j_client = Neo4jClient(neo4j_url, auth=neo4j_auth)
     neo4j_client.import_segments(data_path, file_name)
