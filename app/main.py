@@ -38,7 +38,7 @@ def extracted_data():
     nb_restaurants = restaurants_collection_pointer.count()
 
     with driver1.session() as session:
-        result=list(session.run('match ()-[a]-() return count(a)'))
+        result=list(session.run('match ()-[a]->() return count(a)'))
         nb_segments=result[0]['count(a)'] 
         session.close()  
 
