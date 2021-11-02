@@ -21,6 +21,8 @@ services:
     image: "mongo:4.2"
     expose:
     - 27017
+    volumes:
+    - ./database/mongo:/data/db
     
   neo4j_service:
     image: "neo4j:3.5.8"
@@ -29,6 +31,8 @@ services:
     - 7474:7474
     environment:
       - NEO4J_AUTH=neo4j/password
+    volumes:
+    - ./database/neo4j:/data/db
 
   etlpipeline:
     depends_on:
