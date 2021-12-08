@@ -4,6 +4,7 @@ import os
 import json
 from typing import Tuple
 from neo4j import GraphDatabase
+import markdown
 
 flask_env = os.getenv('flask_env')
 application = Flask('test_app')
@@ -35,7 +36,7 @@ def heartbeat():
 
 @application.route('/extracted_data')
 def extracted_data():
-    nb_restaurants = restaurants_collection_pointer.count()
+    nb_restaurants = restaurants_collection_pointer.count_documents({})
 
     with driver1.session() as session:
         result=list(session.run('match ()-[a]->() return count(a)'))
@@ -51,7 +52,7 @@ def extracted_data():
 def get_restaurants_per_category() -> Tuple[str, int]:
     categoriesDistinct = restaurants_collection_pointer.distinct('CategoriesList')
     for category in categoriesDistinct:
-        nbRestaurants = restaurants_collection_pointer.count({'CategoriesList': category})
+        nbRestaurants = restaurants_collection_pointer.count_documents({'CategoriesList': category})
         yield category, nbRestaurants
 
 @application.route('/transformed_data')
