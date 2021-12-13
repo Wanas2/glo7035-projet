@@ -78,4 +78,9 @@ def readme():
         md = markdown.markdown(f.read())
     return render_template_string(md)
 
+@application.route('/type')
+def type():
+    categories = restaurants_collection_pointer.distinct('CategoriesList')
+    return jsonify(categories)
+
 application.run('0.0.0.0',port, debug=debug)
