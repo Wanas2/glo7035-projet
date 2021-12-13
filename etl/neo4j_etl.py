@@ -2,6 +2,8 @@ from neo4j import GraphDatabase
 from neo4j.exceptions import ServiceUnavailable
 import os
 import json
+from pymongo import MongoClient
+
 
 class Neo4jClient:
 
@@ -62,8 +64,26 @@ class Neo4jClient:
                 query=query, exception=exception))
             raise
 
-    def add_restaurant(nom, types, latitude, longitude):
-        pass
+
+    def add_restaurant(self, nom, types, latitude, longitude):
+
+        query = "MATCH (n:Point) WITH point({ " \
+            + f"longitude: {longitude}, latitude: {latitude}" \
+                + "}) AS p1, point({ longitude: n.longitude, latitude: n.latitude}) AS p2 RETURN distance(p1, p2) AS VolOiseau, p2.latitude, p2.longitude ORDER BY VolOiseau LIMIT 1"
+        results = self.query(query)
+
+        result_dict = results[0]
+        latitude_point = result_dict['p2.latitude']
+        longitude_point = result_dict['p2.longitude']
+
+        query = "CREATE (n:Restaurant {Nom : \"" + f"{nom}" + "\", CategoriesList : " + f"{types}" + "})"
+        self.query(query)
+
+        query = "MATCH (n:Point {latitude: " \
+            + f"{latitude_point}, longitude: {longitude_point}" \
+                + "}), (r:Restaurant {Nom: \"" + f"{nom}" + "\"}) CREATE (n)<-[l:POSITION]-(r) RETURN l"
+        self.query(query)
+
 
     def clean(self):
         query = "MATCH (n:Point) RETURN n"
@@ -87,4 +107,17 @@ if __name__ == "__main__":
 
     neo4j_client = Neo4jClient(neo4j_url, auth=neo4j_auth)
     neo4j_client.import_segments(data_path, file_name)
+
+    mongo_client = MongoClient(host="mongo_service")
+    restaurants_collection_pointer = mongo_client['7035Projet']['restaurants']
+    restaurants = restaurants_collection_pointer.find({})
+
+    for restaurant in restaurants:
+        latitude = restaurant["Latitude"]
+        longitude = restaurant["Longitude"]
+        nom = restaurant["Nom"]
+        types = restaurant["CategoriesList"]
+        if latitude and longitude:
+            neo4j_client.add_restaurant(nom, types, latitude, longitude)
+
     neo4j_client.close()
