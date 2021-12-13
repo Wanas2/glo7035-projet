@@ -39,6 +39,7 @@ class Neo4jClient:
                 print("we represent the following segments in neo4j: segment{p}......".format(p=result[0:19]))
         except Exception as e:
             print("Problem with driver session : {}".format(e.args[0]))
+        self.clean()
 
     @staticmethod
     def get_json(data_path, file_name):
@@ -60,6 +61,20 @@ class Neo4jClient:
             logging.error("{query} raised an error: \n {exception}".format(
                 query=query, exception=exception))
             raise
+
+    def add_restaurant(nom, types, latitude, longitude):
+        pass
+
+    def clean(self):
+        query = "MATCH (n:Point) RETURN n"
+        results = self.query(query)
+        for result in results:
+            for node in result:
+                latitude = node['latitude']
+                longitude = node['longitude']
+                if not(isinstance(latitude, float) and isinstance(longitude, float)):
+                    query = f"MATCH (n:Point) WHERE n.latitude = {latitude} AND n.longitude = {longitude} DETACH DELETE n"
+                    results = self.query(query)
 
             
 if __name__ == "__main__":
