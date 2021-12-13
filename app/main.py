@@ -1,5 +1,5 @@
 from pymongo import MongoClient, DESCENDING
-from flask import Flask, jsonify
+from flask import Flask, jsonify, render_template_string
 import os
 import json
 from typing import Tuple
@@ -72,5 +72,10 @@ def transformed_data():
     "longueurCyclable": longueurCyclable
     })
     
+@application.route('/readme')
+def readme():
+    with open('README.md', 'r') as f:
+        md = markdown.markdown(f.read())
+    return render_template_string(md)
 
 application.run('0.0.0.0',port, debug=debug)
