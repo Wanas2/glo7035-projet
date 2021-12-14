@@ -1,112 +1,113 @@
-from neo4j import GraphDatabase
-from neo4j.exceptions import ServiceUnavailable
 import os
 import json
+
+from neo4j import GraphDatabase
 from pymongo import MongoClient
 
+class Neo4JClient:
+    def __init__(self, uri, auth=('neo4j','password')):
+        self.drive = None
+        self.session = None
 
-class Neo4jClient:
-
-    def __init__(self, uri, auth):
-        self.driver=None
         try:
             self.driver = GraphDatabase.driver(uri, auth=auth)
         except Exception as e:
-            print("Failed to create the driver:", e)
+            print("Failed to create the driver: {}".format(e.args[0]))
+
 
     def close(self):
-        if self.driver is not None:
+        if self.driver:
             self.driver.close()
 
-    def query(self, query, parameters=None, db=None):
+    def open_session(self):
+        return self.driver.session()
+    
+    def close_session(self):
+        if self.session:
+            self.session.close()
+
+    def query(self, query, parameters=None):
         assert self.driver is not None, "Driver not initialized!"
-        session = None
-        response = None
-        try: 
-            session = self.driver.session(database=db) if db is not None else self.driver.session() 
+        try:
+            session = self.open_session() 
             response = list(session.run(query, parameters))
         except Exception as e:
-            print("Query failed:", e)
-        finally: 
-            if session is not None:
-                session.close()
+            print("Failed to run query: {} - {}".format(query, e.args[0]))
+        self.close_session()
         return response
 
-    def import_segments(self, data_path, file_name):
-        value = self.get_json(data_path,file_name)
+    def write_transaction(self, func, value):
+        assert self.driver is not None, "Driver not initialized!"
         try:
-            with self.driver.session() as session:
-                result = session.write_transaction(self.create_return_graph, value)
-                session.close()
-                print("we represent the following segments in neo4j: segment{p}......".format(p=result[0:19]))
+            session = self.open_session() 
+            response = list(session.write_transaction(func, value))
         except Exception as e:
-            print("Problem with driver session : {}".format(e.args[0]))
-        self.clean()
-
-    @staticmethod
-    def get_json(data_path, file_name):
-        file_path = os.path.join(data_path, file_name)
-        try:
-            with open(file_path) as data_file:
-                my_json = json.load(data_file)
-                return my_json
-        except Exception as e:
-            print("Problem with file {} : {}".format(file_path, e.args[0]))
-
-    def create_return_graph(self, tx, value):
-        query = ("unwind $value.features as features unwind features.geometry as geometry unwind features.properties as properties unwind properties.TOPONYMIE as TOPONYMIE unwind properties.VITESSE as VITESSE unwind properties.SHAPE_Length as SHAPE_Length unwind properties.NOMGENERIQUE as NOMGENERIQUE merge (p:Point{longitude:geometry.coordinates[0][0],latitude:geometry.coordinates[0][1]}) merge(o:Point{longitude:geometry.coordinates[-1][0],latitude:geometry.coordinates[-1][1]}) merge (p)-[s:segment{TOPONYMIE:TOPONYMIE,SHAPE_Length:SHAPE_Length,NOMGENERIQUE:NOMGENERIQUE,VITESSE:VITESSE}]->(o) return s")
-        try:
-            result = tx.run(query, value=value)
-            return [record["s"]["NOMGENERIQUE"]
-                    for record in result]
-        except ServiceUnavailable as exception:
-            logging.error("{query} raised an error: \n {exception}".format(
-                query=query, exception=exception))
-            raise
+            print("Failed to write transaction {}".format(e.args[0]))
+        self.close_session()
+        return response
 
 
-    def add_restaurant(self, nom, types, latitude, longitude):
-
-        query = "MATCH (n:Point) WITH point({ " \
-            + f"longitude: {longitude}, latitude: {latitude}" \
-                + "}) AS p1, point({ longitude: n.longitude, latitude: n.latitude}) AS p2 RETURN distance(p1, p2) AS VolOiseau, p2.latitude, p2.longitude ORDER BY VolOiseau LIMIT 1"
-        results = self.query(query)
-
-        result_dict = results[0]
-        latitude_point = result_dict['p2.latitude']
-        longitude_point = result_dict['p2.longitude']
-
-        query = "CREATE (n:Restaurant {Nom : \"" + f"{nom}" + "\", CategoriesList : " + f"{types}" + "})"
-        self.query(query)
-
-        query = "MATCH (n:Point {latitude: " \
-            + f"{latitude_point}, longitude: {longitude_point}" \
-                + "}), (r:Restaurant {Nom: \"" + f"{nom}" + "\"}) CREATE (n)<-[l:POSITION]-(r) RETURN l"
-        self.query(query)
+neo4j_client = Neo4JClient("bolt://neo4j_service:7687")
 
 
-    def clean(self):
-        query = "MATCH (n:Point) RETURN n"
-        results = self.query(query)
-        for result in results:
-            for node in result:
-                latitude = node['latitude']
-                longitude = node['longitude']
-                if not(isinstance(latitude, float) and isinstance(longitude, float)):
-                    query = f"MATCH (n:Point) WHERE n.latitude = {latitude} AND n.longitude = {longitude} DETACH DELETE n"
-                    results = self.query(query)
+def get_json(file_directory, file_name):
+    file_path = os.path.join(file_directory, file_name)
+    try:
+        with open(file_path) as file:
+            return json.load(file)
+    except Exception as e:
+        print("Problem with file {} : {}".format(file_path, e.args[0]))
 
+
+def create_return_graph(tx, value):
+    query = ("unwind $value.features as features unwind features.geometry as geometry unwind features.properties as properties unwind properties.TOPONYMIE as TOPONYMIE unwind properties.VITESSE as VITESSE unwind properties.SHAPE_Length as SHAPE_Length unwind properties.NOMGENERIQUE as NOMGENERIQUE merge (p:Point{longitude:geometry.coordinates[0][0],latitude:geometry.coordinates[0][1]}) merge(o:Point{longitude:geometry.coordinates[-1][0],latitude:geometry.coordinates[-1][1]}) merge (p)-[s:segment{TOPONYMIE:TOPONYMIE,SHAPE_Length:SHAPE_Length,NOMGENERIQUE:NOMGENERIQUE,VITESSE:VITESSE}]->(o) return s")
+
+    try:
+        result = tx.run(query, value=value)
+        return [record["s"]["NOMGENERIQUE"] for record in result]
+    except Exception as e:
+        print("Problem with query {} : {}".format(query, e.args[0]))
+
+
+def add_restaurant(name, types, latitude, longitude):
+    query = ("MATCH (p:Point) WITH point({ longitude:" + f"{longitude}"+",latitude:" + f"{latitude}" +" }) AS restaurant, point({ longitude: p.longitude, latitude: p.latitude}) AS neighbour RETURN distance(restaurant, neighbour) AS dist, neighbour.latitude, neighbour.longitude ORDER BY dist LIMIT 1")
+    result = neo4j_client.query(query)[0]
+    latitude = result['neighbour.latitude']
+    longitude = result['neighbour.longitude']
+
+    query = "CREATE (r:Restaurant {Nom: \"" + f"{name}" + "\", Categories: " + f"{types}" + "})"
+    neo4j_client.query(query)
+
+    query = ("MATCH (p:Point {latitude: " + f"{latitude}, longitude: {longitude}" + "}), (r:Restaurant {Nom: \"" + f"{name}" + "\"}) WHERE NOT (p)-[:est_proche_de]->(r) CREATE (p)-[:est_proche_de]->(r)")
+    neo4j_client.query(query)
+
+
+def clean():
+    query = "MATCH (p:Point) RETURN p"
+    results = neo4j_client.query(query)
+        
+    for result in results:
+        for node in result:
+            latitude = node['latitude']
+            longitude = node['longitude']
+            if not(isinstance(latitude, float) and isinstance(longitude, float)):
+                query = f"MATCH (p:Point) WHERE p.latitude = {latitude} AND p.longitude = {longitude} DETACH DELETE p"
+                results = neo4j_client.query(query)
+
+
+def import_segments(file_directory, file_name):
+    file = get_json(file_directory, file_name)
+
+    try:
+        result = neo4j_client.write_transaction(create_return_graph, file)
+        print("we represent the following segments in neo4j: segment{p}......".format(p=result[0:19]))        
+    except Exception as e:
+        print("Problem with driver session : {}".format(e.args[0]))
+    
+    clean()
             
 if __name__ == "__main__":
-    neo4j_url = "bolt://neo4j_service:7687"
-    neo4j_auth = ('neo4j','password')
-    print("====== DEBUG", neo4j_url, neo4j_auth)
-
-    data_path = "/data/segments"
-    file_name = "Segments.geojson"
-
-    neo4j_client = Neo4jClient(neo4j_url, auth=neo4j_auth)
-    neo4j_client.import_segments(data_path, file_name)
+    import_segments("/data/segments", "Segments.geojson")
 
     mongo_client = MongoClient(host="mongo_service")
     restaurants_collection_pointer = mongo_client['7035Projet']['restaurants']
@@ -118,6 +119,6 @@ if __name__ == "__main__":
         nom = restaurant["Nom"]
         types = restaurant["CategoriesList"]
         if latitude and longitude:
-            neo4j_client.add_restaurant(nom, types, latitude, longitude)
+            add_restaurant(nom, types, latitude, longitude)
 
     neo4j_client.close()
