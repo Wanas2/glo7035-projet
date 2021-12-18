@@ -1,5 +1,5 @@
 from pymongo import MongoClient, DESCENDING
-from flask import Flask, jsonify, render_template_string, request
+from flask import Flask, jsonify, render_template_string, redirect
 import os
 import json
 from typing import Tuple
@@ -27,7 +27,7 @@ else :
 
 @application.route('/')
 def index():
-    return("<p>Hello world!</p>")
+    return redirect("/readme")
                            
 @application.route('/heartbeat')
 def heartbeat():
@@ -45,8 +45,8 @@ def extracted_data():
         session.close()  
 
     return jsonify({
-    "nbRestaurants" : nb_restaurants,
-    "nbSegments" : nb_segments
+        "nbRestaurants" : nb_restaurants,
+        "nbSegments" : nb_segments
     })
     
 
@@ -69,8 +69,8 @@ def transformed_data():
         session.close()
 
     return jsonify({
-    "restaurants" : categoriesDict,
-    "longueurCyclable": longueurCyclable
+        "restaurants" : categoriesDict,
+        "longueurCyclable": longueurCyclable
     })
     
 @application.route('/readme')
