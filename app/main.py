@@ -1,11 +1,12 @@
 from pymongo import MongoClient, DESCENDING
-from flask import Flask, jsonify, render_template_string, redirect
+from flask import Flask, jsonify, render_template_string, redirect, request
 import os
 import json
 from typing import Tuple
 from neo4j import GraphDatabase
 import markdown
 from random import randint
+import geojson
 
 flask_env = os.getenv('flask_env')
 application = Flask('test_app')
@@ -89,27 +90,36 @@ def type():
 def starting_point():
     with driver1.session() as session:
 
-        longueur = request.args['length']
-        types = request.args['type']
+        params = json.loads(request.get_data(as_text=True))
+
+        try:
+            length = params['length']
+            types = params['type']
+        except:
+            return "Paramètres nécessaires: length (int), type [string, ...]", 400
+
+        if not isinstance(length, int):
+            return "length doit être un int", 400
+
+        if not isinstance(types, list):
+            return "type doit être un list", 400
+        else:
+            for type in types:
+                if not isinstance(type, str):
+                    return "type doit être un list de string", 400
 
         query = "MATCH (r:Restaurant)-[POSITION]->(p:Point) RETURN p"
         results = list(session.run(query))
 
         random_index = randint(0, len(results))
 
-        coordinates = [0, 0]
+        latitude = results[random_index][0]['latitude']
+        longitude = results[random_index][0]['longitude']
 
-        coordinates[0] = results[random_index][0]['latitude']
-        coordinates[1] = results[random_index][0]['longitude']
-
-        starting_point = dict()
-        starting_point["type"] = "Point"
-        starting_point["coordinates"] = coordinates
+        starting_point = geojson.Point((longitude, latitude))
 
         session.close()
 
-    return jsonify({
-    "startingPoint" : starting_point
-    })
+    return jsonify({ "startingPoint": starting_point })
 
 application.run('0.0.0.0',port, debug=debug)
