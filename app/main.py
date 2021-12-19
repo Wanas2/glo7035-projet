@@ -122,4 +122,43 @@ def starting_point():
 
     return jsonify({ "startingPoint": starting_point })
 
+
+def total_shape_length(path):
+    total = 0
+    for r in path.relationships:
+        if "SHAPE_Length" in r:
+            total = total + r["SHAPE_Length"]
+    return total
+
+def line_string(path):
+    line = []
+    for n in path.nodes:
+        label = list(n.labels)[0]
+        if label == "Point":
+            line.append(n.get("latitude"), n.get("longitude"))
+    return line  
+
+@application.route("/parcours")
+def parcours():
+    with driver1.session() as session:
+        res = session.run("MATCH (r:Restaurant) RETURN r")
+        graph = res.graph()
+        for ix, node in enumerate(graph.nodes):
+            application.logger.info(f"\n\n======== Node: {ix}")
+            res = session.run("MATCH p=(:Restaurant{Nom:\""+node.get("Nom")+"\"})-[:est_proche_de]-(:Point)-[:segment*1..10]->(:Point)-[:est_proche_de]-(:Restaurant) RETURN p")
+            for record in res:
+                path = record["p"]
+                length = total_shape_length(path)
+                line = line_string(path)
+
+                if len(line) > 0:
+                    query = "MATCH (a:Restaurant),(b:Restaurant) WHERE NOT a.Nom = b.Nom AND a.Nom = \""+ path.start_node.get("Nom") +"\" AND b.Nom = \""+ path.end_node.get("Nom") +"\" AND NOT (a)-[:chemin]-(b) CREATE (a)-[r:chemin {length:\""+ str(length) +"\", line_string:\""+ str(line) +"\"}]->(b) RETURN type(r), r.length"
+                    session.run(query)
+
+                    application.logger.info(record["p"])
+
+    return jsonify({
+        "message": "ok"
+    })
+
 application.run('0.0.0.0',port, debug=debug)
