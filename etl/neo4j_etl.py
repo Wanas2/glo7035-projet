@@ -25,16 +25,19 @@ class Neo4JClient:
     def close_session(self):
         if self.session:
             self.session.close()
-
-    def query(self, query, parameters=None):
+    
+    def raw_query(self, query, parameters=None):
         assert self.driver is not None, "Driver not initialized!"
         try:
             session = self.open_session() 
-            response = list(session.run(query, parameters))
+            response = session.run(query, parameters)
         except Exception as e:
             print("Failed to run query: {} - {}".format(query, e.args[0]))
         self.close_session()
         return response
+
+    def query(self, query, parameters=None):
+        return list(self.raw_query(query, parameters))
 
     def write_transaction(self, func, value):
         assert self.driver is not None, "Driver not initialized!"
@@ -70,16 +73,50 @@ def create_return_graph(tx, value):
 
 
 def add_restaurant(name, types, latitude, longitude, client):
+    query = "MERGE (r:Restaurant {Nom: \"" + f"{name}" + "\", Categories: " + f"{types}" + ", position:["+ str(latitude) + "," + str(longitude) +"]})"
+    client.query(query)
+
     query = ("MATCH (p:Point) WITH point({ longitude:" + f"{longitude}"+",latitude:" + f"{latitude}" +" }) AS restaurant, point({ longitude: p.longitude, latitude: p.latitude}) AS neighbour RETURN distance(restaurant, neighbour) AS dist, neighbour.latitude, neighbour.longitude ORDER BY dist LIMIT 1")
     result = client.query(query)[0]
     latitude = result['neighbour.latitude']
     longitude = result['neighbour.longitude']
 
-    query = "MERGE (r:Restaurant {Nom: \"" + f"{name}" + "\", Categories: " + f"{types}" + "})"
-    client.query(query)
-
     query = ("MATCH (p:Point {latitude: " + f"{latitude}, longitude: {longitude}" + "}), (r:Restaurant {Nom: \"" + f"{name}" + "\"}) WHERE NOT (p)-[:est_proche_de]->(r) MERGE (p)<-[:est_proche_de]-(r)")
     client.query(query)
+
+
+def total_shape_length(path):
+    total = 0
+    for r in path.relationships:
+        if "SHAPE_Length" in r:
+            total = total + r["SHAPE_Length"]
+    return total
+
+def line_string(path):
+    line = []
+    for n in path.nodes:
+        label = list(n.labels)[0]
+        if label == "Point":
+            line.append(n.get("latitude"))
+            line.append(n.get("longitude"))
+    return line  
+
+def calculate_restaurants_path(client):
+    res = client.raw_query("MATCH (r:Restaurant) RETURN r")
+    graph = res.graph()
+    for ix, node in enumerate(graph.nodes):
+        print(f"\n\n======== Node: {ix}")
+        res = client.raw_query("MATCH p=(:Restaurant{Nom:\""+node.get("Nom")+"\"})-[:est_proche_de]-(:Point)-[:segment*1..10]->(:Point)-[:est_proche_de]-(:Restaurant) RETURN p")
+        for record in res:
+            path = record["p"]
+            length = total_shape_length(path)
+            line = line_string(path)
+
+            if len(line) > 0:
+                query = "MATCH (a:Restaurant),(b:Restaurant) WHERE NOT a.Nom = b.Nom AND a.Nom = \""+ path.start_node.get("Nom") +"\" AND b.Nom = \""+ path.end_node.get("Nom") +"\" AND NOT (a)-[:chemin]-(b) CREATE (a)-[r:chemin {length:\""+ str(length) +"\", line_string:"+ str(line) +"}]->(b) RETURN type(r), r.length"
+                client.raw_query(query)
+
+                print(record["p"])
 
 
 def clean(client):
