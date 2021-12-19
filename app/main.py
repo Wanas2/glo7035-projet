@@ -122,41 +122,66 @@ def starting_point():
 
     return jsonify({ "startingPoint": starting_point })
 
-
 def total_shape_length(path):
     total = 0
     for r in path.relationships:
-        if "SHAPE_Length" in r:
-            total = total + r["SHAPE_Length"]
+        if "length" in r:
+            total = total + float(r["length"])
     return total
 
 def line_string(path):
-    line = []
-    for n in path.nodes:
-        label = list(n.labels)[0]
-        if label == "Point":
-            line.append(n.get("latitude"), n.get("longitude"))
-    return line  
+    for r in path.relationships:
+        if "line_string" in r:
+            return r["line_string"]
 
 @application.route("/parcours")
 def parcours():
     with driver1.session() as session:
-        res = session.run("MATCH (r:Restaurant) RETURN r")
-        graph = res.graph()
-        for ix, node in enumerate(graph.nodes):
-            application.logger.info(f"\n\n======== Node: {ix}")
-            res = session.run("MATCH p=(:Restaurant{Nom:\""+node.get("Nom")+"\"})-[:est_proche_de]-(:Point)-[:segment*1..10]->(:Point)-[:est_proche_de]-(:Restaurant) RETURN p")
+        # params = json.loads(request.get_data(as_text=True))
+
+        try:
+            # starting_point = params["startingPoint"]
+            # nb_of_stops = params["numberOfStops"]
+            # length = params['length']
+            # types = params['type']
+
+            starting_point = {"type":"Point", "coordinates": [45.40255128280751, -71.89099432203005]} 
+            types = ["Cafés & Bistros", "Brasseries", "Délices d'ici", "Saveurs du monde", "Bonnes tables", "Pubs et microbrasseries"]
+            nb_of_stops = 10
+            length = 7500
+
+        except:
+            return "Paramètres nécessaires: length (int), type [string, ...]", 400
+
+        all_restaurants = []
+        road = []
+        total_length = 0
+
+        query = "MATCH (a:Restaurant)-[:est_proche_de]-(b:Point{latitude:"+ str(starting_point["coordinates"][0]) + ", longitude:"+ str(starting_point["coordinates"][1]) +"}) WITH a, a.Categories AS categories UNWIND categories AS category WITH a, category WHERE category IN "+ str(types) + " RETURN a.Nom"
+        current = list(session.run(query))[0][0]
+        application.logger.info(current)
+
+        while total_length < length and len(all_restaurants) < nb_of_stops:
+            res = session.run("MATCH p=(a:Restaurant{Nom:\""+ current +"\"})-[r:chemin*]->(b:Restaurant) WITH p, b.Categories AS categories UNWIND categories as category WITH p, category WHERE category IN "+ str(types) +" RETURN p")
+
+            path = None
             for record in res:
                 path = record["p"]
-                length = total_shape_length(path)
-                line = line_string(path)
+                if len(path) > 0:
+                    break
+            if path:
+                node = path.start_node
+                if node not in all_restaurants:
+                    all_restaurants.append(node)
+                total_length = total_length + total_shape_length(path)
+                current = path.end_node.get("Nom")
+                road.append(line_string(path))        
+            else:
+                break
 
-                if len(line) > 0:
-                    query = "MATCH (a:Restaurant),(b:Restaurant) WHERE NOT a.Nom = b.Nom AND a.Nom = \""+ path.start_node.get("Nom") +"\" AND b.Nom = \""+ path.end_node.get("Nom") +"\" AND NOT (a)-[:chemin]-(b) CREATE (a)-[r:chemin {length:\""+ str(length) +"\", line_string:\""+ str(line) +"\"}]->(b) RETURN type(r), r.length"
-                    session.run(query)
-
-                    application.logger.info(record["p"])
-
+        application.logger.info(all_restaurants)
+        application.logger.info(total_length)
+            
     return jsonify({
         "message": "ok"
     })
