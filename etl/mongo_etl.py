@@ -5,9 +5,11 @@ from typing import Tuple
 from hashlib import md5
 import json
 from pathlib import Path
+from neo4j_etl import start_neo4j_etl
 
 RESTAURANTSDATAPATH = "/data/restaurants/"
 CATEGORIESDATAPATH = "/data/categories/"
+SEGMENTSDATAPATH = "/data/segments/"
 FILENAME = "source_file"
 STATUS = "file_status"
 HASH = "hash"
@@ -89,6 +91,31 @@ if __name__ == "__main__":
                 delete_restaurant(filename)
                 for restaurant in restaurant_document:
                     insert_restaurant(filename, restaurant)
+                log_document[STATUS] = "EXTRACTED"
+                log_document[HASH] = current_document_hash
+                print("Lecture complétée du fichier {}".format(filename))
+
+            else:
+                log_document[STATUS] = "IGNORED"
+                log_document[HASH] = current_document_hash
+                print("Aucun changement détecté dans le fichier {}".format(filename))
+        except Exception as e:
+            print("Erreur avec le document {}: {}".format(filename, e.args[0]))
+            log_document[MESSAGE] = e.args[0]
+            log_document[STATUS] = "ERROR"
+
+        if log_document[STATUS] in ["EXTRACTED", "ERROR"]:
+            insert_log(log_document)
+
+    for filename, file_handle in get_source_file(SEGMENTSDATAPATH):
+
+        log_document = get_log_document_template()
+        log_document[FILENAME] = filename
+        try:
+            segment_document = json.load(file_handle)
+            current_document_hash = md5(str(segment_document).encode()).hexdigest()
+            if file_to_update(filename, current_document_hash):
+                start_neo4j_etl()
                 log_document[STATUS] = "EXTRACTED"
                 log_document[HASH] = current_document_hash
                 print("Lecture complétée du fichier {}".format(filename))

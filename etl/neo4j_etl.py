@@ -47,7 +47,7 @@ class Neo4JClient:
         return response
 
 
-neo4j_client = Neo4JClient("bolt://neo4j_service:7687")
+
 
 
 def get_json(file_directory, file_name):
@@ -69,22 +69,22 @@ def create_return_graph(tx, value):
         print("Problem with query {} : {}".format(query, e.args[0]))
 
 
-def add_restaurant(name, types, latitude, longitude):
+def add_restaurant(name, types, latitude, longitude, client):
     query = ("MATCH (p:Point) WITH point({ longitude:" + f"{longitude}"+",latitude:" + f"{latitude}" +" }) AS restaurant, point({ longitude: p.longitude, latitude: p.latitude}) AS neighbour RETURN distance(restaurant, neighbour) AS dist, neighbour.latitude, neighbour.longitude ORDER BY dist LIMIT 1")
-    result = neo4j_client.query(query)[0]
+    result = client.query(query)[0]
     latitude = result['neighbour.latitude']
     longitude = result['neighbour.longitude']
 
-    query = "CREATE (r:Restaurant {Nom: \"" + f"{name}" + "\", Categories: " + f"{types}" + "})"
-    neo4j_client.query(query)
+    query = "MERGE (r:Restaurant {Nom: \"" + f"{name}" + "\", Categories: " + f"{types}" + "})"
+    client.query(query)
 
-    query = ("MATCH (p:Point {latitude: " + f"{latitude}, longitude: {longitude}" + "}), (r:Restaurant {Nom: \"" + f"{name}" + "\"}) WHERE NOT (p)-[:est_proche_de]->(r) CREATE (p)-[:est_proche_de]->(r)")
-    neo4j_client.query(query)
+    query = ("MATCH (p:Point {latitude: " + f"{latitude}, longitude: {longitude}" + "}), (r:Restaurant {Nom: \"" + f"{name}" + "\"}) WHERE NOT (p)-[:est_proche_de]->(r) MERGE (p)<-[:est_proche_de]-(r)")
+    client.query(query)
 
 
-def clean():
+def clean(client):
     query = "MATCH (p:Point) RETURN p"
-    results = neo4j_client.query(query)
+    results = client.query(query)
         
     for result in results:
         for node in result:
@@ -92,22 +92,23 @@ def clean():
             longitude = node['longitude']
             if not(isinstance(latitude, float) and isinstance(longitude, float)):
                 query = f"MATCH (p:Point) WHERE p.latitude = {latitude} AND p.longitude = {longitude} DETACH DELETE p"
-                results = neo4j_client.query(query)
+                results = client.query(query)
 
 
-def import_segments(file_directory, file_name):
+def import_segments(file_directory, file_name, client):
     file = get_json(file_directory, file_name)
 
     try:
-        result = neo4j_client.write_transaction(create_return_graph, file)
+        result = client.write_transaction(create_return_graph, file)
         print("we represent the following segments in neo4j: segment{p}......".format(p=result[0:19]))        
     except Exception as e:
         print("Problem with driver session : {}".format(e.args[0]))
     
-    clean()
+    clean(client=client)
             
-if __name__ == "__main__":
-    import_segments("/data/segments", "Segments.geojson")
+def start_neo4j_etl():
+    neo4j_client = Neo4JClient("bolt://neo4j_service:7687")
+    import_segments("/data/segments", "Segments.geojson", client=neo4j_client)
 
     mongo_client = MongoClient(host="mongo_service")
     restaurants_collection_pointer = mongo_client['7035Projet']['restaurants']
@@ -119,6 +120,6 @@ if __name__ == "__main__":
         nom = restaurant["Nom"]
         types = restaurant["CategoriesList"]
         if latitude and longitude:
-            add_restaurant(nom, types, latitude, longitude)
+            add_restaurant(nom, types, latitude, longitude, client=neo4j_client)
 
     neo4j_client.close()
