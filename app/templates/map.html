@@ -1,0 +1,99 @@
+<html>  
+<head>
+<meta name="viewport" content="initial-scale=1.0, width=device-width" />
+<script src="https://js.api.here.com/v3/3.1/mapsjs-core.js"type="text/javascript" charset="utf-8"></script>
+<script src="https://js.api.here.com/v3/3.1/mapsjs-service.js"type="text/javascript" charset="utf-8"></script>
+<script src="https://js.api.here.com/v3/3.1/mapsjs-mapevents.js" type="text/javascript" charset="utf-8"></script>
+<script src="https://js.api.here.com/v3/3.1/mapsjs-ui.js" type="text/javascript" charset="utf-8"></script>
+<script src="https://js.api.here.com/v3/3.1/mapsjs-data.js" type="text/javascript" charset="utf-8"></script>
+<link rel="stylesheet" type="text/css"href="https://js.api.here.com/v3/3.1/mapsjs-ui.css" />
+</head>
+  
+<body style='margin: 0'>
+<div style="width: 100%; height: 100%" id="mapContainer"></div>
+
+<script>
+function showGeoJSONData (map) {
+  // Create GeoJSON reader which will download the specified file.
+  // Shape of the file was obtained by using HERE Geocoder API.
+  // It is possible to customize look and feel of the objects.
+  var reader = new H.data.geojson.Reader('/getparcours/parcours.json'
+  // , {
+  //   // This function is called each time parser detects a new map object
+  //   style: function (mapObject) {
+  //     // Parsed geo objects could be styled using setStyle method
+  //     if (mapObject instanceof H.map.MultiLineString) {
+  //       mapObject.setStyle({
+  //         //fillColor: 'rgba(255, 0, 0, 0.5)',
+  //         //strokeColor: 'rgba(0, 0, 255, 0.2)',
+  //         lineWidth: 3
+  //       })
+  //     };
+  //     var marker = new H.map.Marker({ lat: 10.0, lng: 10.0});
+	//   // Add the marker to the map:
+	//         map.addObject(marker)
+  //   }
+  // }
+  // 
+  );
+     // Start parsing the file
+    reader.parse();
+     // Add layer which shows GeoJSON data on the map
+    map.addLayer(reader.getLayer());
+  }
+
+
+    
+
+
+     // Initialize the platform object:
+    var platform = new H.service.Platform({
+        'apikey': 'H874GMoHHvRToo82ip9Oov95a3B9LqPvGmVh3SrKZUU'
+      });
+  
+    const lat = 45.4042;
+	  const long = -71.8929;
+
+    // Obtain the default map types from the platform object
+    var defaultLayers = platform.createDefaultLayers();
+    // Instantiate (and display) a map object:
+    var map = new H.Map(
+        document.getElementById('mapContainer'),
+        defaultLayers.raster.normal.map,
+        {
+          zoom: 15,
+          center: { lat: lat, lng: long },  
+          pixelRatio: window.devicePixelRatio || 1
+        });
+
+    // add a resize listener to make sure that the map occupies the whole container
+    window.addEventListener('resize', () => map.getViewPort().resize());
+    // Create the default UI components
+    var ui = H.ui.UI.createDefault(map, defaultLayers);
+    ui.getControl('scalebar').setVisibility(false)
+    ui.getControl('mapsettings').setVisibility(false)
+    ui.getControl('zoom').setVisibility(false)
+
+    // Add basic map events like pan and zoom 
+    // MapEvents enables the event system
+    // Behavior implements default interactions for pan/zoom (also on mobile touch environments)
+    var mapEvents = new H.mapevents.MapEvents(map);
+    var behavior = new H.mapevents.Behavior(mapEvents);
+    window.addEventListener('resize', () => map.getViewPort().resize());
+    //var icon = new H.map.Icon('/data/Restaurant.png');
+
+    // var marker = new H.map.Marker({ lat: lat, lng: long})
+	  // // Add the marker to the map:
+	  // map.addObject(marker);
+  //initMap();
+
+
+  showGeoJSONData(map);
+
+		
+</script>
+<h1>Afficher le parcours obtenu sur la carte</h1>
+</body>
+</html>
+
+

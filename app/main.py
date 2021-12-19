@@ -1,5 +1,5 @@
 from pymongo import MongoClient, DESCENDING
-from flask import Flask, jsonify, render_template_string, redirect, request
+from flask import Flask, jsonify, render_template, render_template_string, redirect, request
 import os
 import json
 from typing import Tuple
@@ -9,7 +9,7 @@ from random import randint
 import geojson
 
 flask_env = os.getenv('flask_env')
-application = Flask('test_app')
+application = Flask('test_app',template_folder="templates")
 
 mongo_client = MongoClient(host="mongo_service")
 log_collection_pointer = mongo_client['7035Projet']['log']
@@ -160,5 +160,18 @@ def parcours():
     return jsonify({
         "message": "ok"
     })
+
+@application.route('/map')
+def map_func():
+	return render_template('map.html')
+
+@application.route('/getparcours/<name>')
+def getParcours(name):
+   basedir = os.path.abspath(os.path.dirname(__file__))
+   result_file = os.path.join(basedir, 'templates/'+name)
+   if os.path.exists(result_file):
+         return render_template(name)
+   else:
+        return "vous n'avez pas choisi votre parcours"
 
 application.run('0.0.0.0',port, debug=debug)
