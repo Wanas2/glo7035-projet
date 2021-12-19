@@ -7,6 +7,7 @@ from neo4j import GraphDatabase
 import markdown
 from random import randint
 import geojson
+import requests
 
 flask_env = os.getenv('flask_env')
 application = Flask('test_app',template_folder="templates")
@@ -173,5 +174,18 @@ def getParcours(name):
          return render_template(name)
    else:
         return "vous n'avez pas choisi votre parcours"
+
+@application.route('/weather')
+def weather_func():
+    url = 'http://api.openweathermap.org/data/2.5/weather?q={}&units=imperial&appid=45ed38051862c962bc68103892378b70'
+    city="Sherbrooke"
+    r = requests.get(url.format(city)).json()
+    weather = {
+            'city' : city,
+            'temperature' : r['main']['temp'],
+            'description' : r['weather'][0]['description'],
+            'icon' : r['weather'][0]['icon'],
+        }
+    return render_template('weather.html', weather=weather)
 
 application.run('0.0.0.0',port, debug=debug)
