@@ -73,13 +73,15 @@ def create_return_graph(tx, value):
 
 
 def add_restaurant(name, types, latitude, longitude, client):
-    query = "MERGE (r:Restaurant {Nom: \"" + f"{name}" + "\", Categories: " + f"{types}" + ", position:["+ str(latitude) + "," + str(longitude) +"]})"
-    client.query(query)
-
+    lat, long = latitude, longitude
+    
     query = ("MATCH (p:Point) WITH point({ longitude:" + f"{longitude}"+",latitude:" + f"{latitude}" +" }) AS restaurant, point({ longitude: p.longitude, latitude: p.latitude}) AS neighbour RETURN distance(restaurant, neighbour) AS dist, neighbour.latitude, neighbour.longitude ORDER BY dist LIMIT 1")
     result = client.query(query)[0]
     latitude = result['neighbour.latitude']
     longitude = result['neighbour.longitude']
+
+    query = "MERGE (r:Restaurant {Nom: \"" + f"{name}" + "\", Categories: " + f"{types}" + ", Position:["+ str(lat) + "," + str(long) +"]})"
+    client.query(query)
 
     query = ("MATCH (p:Point {latitude: " + f"{latitude}, longitude: {longitude}" + "}), (r:Restaurant {Nom: \"" + f"{name}" + "\"}) WHERE NOT (p)-[:est_proche_de]->(r) MERGE (p)<-[:est_proche_de]-(r)")
     client.query(query)
@@ -113,7 +115,7 @@ def calculate_restaurants_path(client):
             line = line_string(path)
 
             if len(line) > 0:
-                query = "MATCH (a:Restaurant),(b:Restaurant) WHERE NOT a.Nom = b.Nom AND a.Nom = \""+ path.start_node.get("Nom") +"\" AND b.Nom = \""+ path.end_node.get("Nom") +"\" AND NOT (a)-[:chemin]-(b) CREATE (a)-[r:chemin {length:\""+ str(length) +"\", line_string:"+ str(line) +"}]->(b) RETURN type(r), r.length"
+                query = "MATCH (a:Restaurant),(b:Restaurant) WHERE NOT a.Nom = b.Nom AND a.Nom = \""+ path.start_node.get("Nom") +"\" AND b.Nom = \""+ path.end_node.get("Nom") +"\" AND NOT (a)-[:chemin]-(b) CREATE (a)-[r:chemin {length:\""+ str(length) +"\", line_string:"+ str(line) +"}]->(b) RETURN type(r)"
                 client.raw_query(query)
 
                 print(record["p"])
@@ -158,5 +160,7 @@ def start_neo4j_etl():
         types = restaurant["CategoriesList"]
         if latitude and longitude:
             add_restaurant(nom, types, latitude, longitude, client=neo4j_client)
+
+    calculate_restaurants_path(neo4j_client)
 
     neo4j_client.close()
