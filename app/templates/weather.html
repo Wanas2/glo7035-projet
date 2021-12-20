@@ -7,6 +7,24 @@
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>What's the weather like?</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.6.2/css/bulma.css" />
+
+    <style>
+        .lh-h2 {
+            text-align: center;
+            width:100%;
+            display: block;
+        }
+
+        .lh-btn {
+            background: #00d1b2;
+            color:white;
+            padding: 15px 50px;
+            border-radius: 25px;
+            text-decoration: none;
+            display: block;
+            margin: 30px;
+        }
+    </style>
 </head>
 
 <body>
@@ -23,8 +41,8 @@
         <div class="container">
             <div class="columns">
                 <div class="column is-offset-4 is-4">
-                    <h2, style="text-align: center;width:100%;">Find the weather for next 7 days?</h2>
-                    <p align="center"><a href="{{ url_for('forecast') }}" ><button class=grey style="height:75px;width:150px">forecast</button></a></p>
+                    <h2 class="lh-h2">Find the weather for next 7 days?</h2>
+                    <p><a class="lh-btn" href="{{ url_for('forecast') }}" ><span style="height:75px;width:150px">forecast</span></a></p>
                 </div>
             </div>
         </div>

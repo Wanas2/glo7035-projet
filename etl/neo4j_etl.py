@@ -37,7 +37,14 @@ class Neo4JClient:
         return response
 
     def query(self, query, parameters=None):
-        return list(self.raw_query(query, parameters))
+        assert self.driver is not None, "Driver not initialized!"
+        try:
+            session = self.open_session() 
+            response = list(session.run(query, parameters))
+        except Exception as e:
+            print("Failed to run query: {} - {}".format(query, e.args[0]))
+        self.close_session()
+        return response
 
     def write_transaction(self, func, value):
         assert self.driver is not None, "Driver not initialized!"
@@ -103,22 +110,22 @@ def line_string(path):
             line.append(n.get("longitude"))
     return line  
 
-def calculate_restaurants_path(client):
-    res = client.raw_query("MATCH (r:Restaurant) RETURN r")
-    graph = res.graph()
-    for ix, node in enumerate(graph.nodes):
-        print(f"\n\n======== Node: {ix}")
-        res = client.raw_query("MATCH p=(:Restaurant{Nom:\""+node.get("Nom")+"\"})-[:est_proche_de]-(:Point)-[:segment*1..10]->(:Point)-[:est_proche_de]-(:Restaurant) RETURN p")
-        for record in res:
-            path = record["p"]
-            length = total_shape_length(path)
-            line = line_string(path)
+# def calculate_restaurants_path(client):
+#     res = client.raw_query("MATCH (r:Restaurant) RETURN r")
+#     graph = res.graph()
+#     for ix, node in enumerate(graph.nodes):
+#         print(f"\n\n======== Node: {ix}")
+#         res = client.raw_query("MATCH p=(:Restaurant{Nom:\""+node.get("Nom")+"\"})-[:est_proche_de]-(:Point)-[:segment*1..10]->(:Point)-[:est_proche_de]-(:Restaurant) RETURN p")
+#         for record in res:
+#             path = record["p"]
+#             length = total_shape_length(path)
+#             line = line_string(path)
 
-            if len(line) > 0:
-                query = "MATCH (a:Restaurant),(b:Restaurant) WHERE NOT a.Nom = b.Nom AND a.Nom = \""+ path.start_node.get("Nom") +"\" AND b.Nom = \""+ path.end_node.get("Nom") +"\" AND NOT (a)-[:chemin]-(b) CREATE (a)-[r:chemin {length:\""+ str(length) +"\", line_string:"+ str(line) +"}]->(b) RETURN type(r)"
-                client.raw_query(query)
+#             if len(line) > 0:
+#                 query = "MATCH (a:Restaurant),(b:Restaurant) WHERE NOT a.Nom = b.Nom AND a.Nom = \""+ path.start_node.get("Nom") +"\" AND b.Nom = \""+ path.end_node.get("Nom") +"\" AND NOT (a)-[:chemin]-(b) CREATE (a)-[r:chemin {length:\""+ str(length) +"\", line_string:"+ str(line) +"}]->(b) RETURN type(r)"
+#                 client.raw_query(query)
 
-                print(record["p"])
+#                 print(record["p"])
 
 
 def clean(client):
@@ -161,6 +168,6 @@ def start_neo4j_etl():
         if latitude and longitude:
             add_restaurant(nom, types, latitude, longitude, client=neo4j_client)
 
-    calculate_restaurants_path(neo4j_client)
+    # calculate_restaurants_path(neo4j_client)
 
     neo4j_client.close()

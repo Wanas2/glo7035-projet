@@ -188,6 +188,7 @@ def parcours():
                 path = record["p"]
                 if len(path) > 0:
                     break
+                
             if path:
                 node = path.start_node
                 if node not in all_restaurants:
