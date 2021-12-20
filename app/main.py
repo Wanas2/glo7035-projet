@@ -213,4 +213,24 @@ def weather_func():
         }
     return render_template('weather.html', weather=weather)
 
+@application.route('/forecast')
+def forecast():
+    url='https://api.openweathermap.org/data/2.5/onecall?lat={}&lon={}&units=imperial&exclude=current,minutely,hourly,alerts&appid=45ed38051862c962bc68103892378b70'
+    lat=45.4042
+    lon=-71.8929
+    r = requests.get(url.format(lat,lon)).json()
+    weather_data = []
+    count=0
+    for day in r['daily']:
+        count+=1
+        weather = {
+            'day': 'day {}'.format(count),
+            'temperature' : day['temp']['day'],
+            'description' : day['weather'][0]['description'],
+            'icon' : day['weather'][0]['icon'],
+        }
+
+        weather_data.append(weather)
+    return render_template('forecast.html',weather_data=weather_data)
+
 application.run('0.0.0.0',port, debug=debug)
