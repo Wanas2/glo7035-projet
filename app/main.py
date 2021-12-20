@@ -239,6 +239,8 @@ def forecast():
     r = requests.get(url.format(lat,lon)).json()
     weather_data = []
     count=0
+    suitableDays=''
+    suitableList=['few clouds','clear sky','overcast clouds','broken clouds','scattered clouds']
     for day in r['daily']:
         count+=1
         weather = {
@@ -247,8 +249,12 @@ def forecast():
             'description' : day['weather'][0]['description'],
             'icon' : day['weather'][0]['icon'],
         }
-
+        if weather['description'] in suitableList:
+            suitableDays=suitableDays+weather['day']+', '
         weather_data.append(weather)
-    return render_template('forecast.html',weather_data=weather_data)
+    if not suitableDays:
+        suitableDays="sorry, no days are"
+    print(suitableDays)
+    return render_template('forecast.html',weather_data=weather_data,suitableDays=suitableDays)
 
 application.run('0.0.0.0',port, debug=debug)
