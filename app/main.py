@@ -141,13 +141,13 @@ def parcours():
         params = json.loads(request.get_data(as_text=True))
 
         try:
-            starting_point = params["startingPoint"]
+            starting_point = geojson.loads(params["startingPoint"])
             nb_of_stops = params["numberOfStops"]
             length = params['length']
             types = params['type']
 
         except:
-            return "Paramètres nécessaires: length (int), type [string, ...]", 400
+            return "Paramètres nécessaires: startingPoint(point), numberOfStops(int), length (int), type [string, ...]", 400
 
         if not isinstance(starting_point, geojson.Point):
             return "startingPoint doit être un point", 400
@@ -169,12 +169,19 @@ def parcours():
         segments_parcours = []
         total_length = 0
 
-        query = "MATCH (a:Restaurant)-[:est_proche_de]-(b:Point{latitude:"+ str(starting_point["coordinates"][0]) + ", longitude:"+ str(starting_point["coordinates"][1]) +"}) WITH a, a.Categories AS categories UNWIND categories AS category WITH a, category WHERE category IN "+ str(types) + " RETURN a.Nom"
+        condition = ""
+        if len(types) == 0:
+            condition = "WITH a, a.Categories AS categories UNWIND categories AS category WITH a, category WHERE category IN "+ str(types)
+
+        query = "MATCH (a:Restaurant)-[:est_proche_de]-(b:Point{latitude:"+ str(starting_point["coordinates"][0]) + ", longitude:"+ str(starting_point["coordinates"][1]) +"})"+ condition + " RETURN a.Nom"
         current = list(session.run(query))[0][0]
         application.logger.info(current)
 
         while total_length < length and len(all_restaurants) < nb_of_stops:
-            res = session.run("MATCH p=(a:Restaurant{Nom:\""+ current +"\"})-[r:chemin*]-(b:Restaurant) WITH p, b.Categories AS categories UNWIND categories as category WITH p, category WHERE category IN "+ str(types) +" RETURN p")
+            condition = ""
+            if len(types) == 0:
+                condition = "WITH p, b.Categories AS categories UNWIND categories as category WITH p, category WHERE category IN "+ str(types)
+            res = session.run("MATCH p=(a:Restaurant{Nom:\""+ current +"\"})-[r:chemin*]-(b:Restaurant) "+ condition +" RETURN p")
 
             path = None
             for record in res:
