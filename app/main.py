@@ -137,24 +137,35 @@ def line_string(path):
 @application.route("/parcours")
 def parcours():
     with driver1.session() as session:
-        # params = json.loads(request.get_data(as_text=True))
+        params = json.loads(request.get_data(as_text=True))
 
         try:
-            # starting_point = params["startingPoint"]
-            # nb_of_stops = params["numberOfStops"]
-            # length = params['length']
-            # types = params['type']
-
-            starting_point = {"type":"Point", "coordinates": [45.40255128280751, -71.89099432203005]} 
-            types = ["Cafés & Bistros", "Brasseries", "Délices d'ici", "Saveurs du monde", "Bonnes tables", "Pubs et microbrasseries"]
-            nb_of_stops = 10
-            length = 7500
+            starting_point = params["startingPoint"]
+            nb_of_stops = params["numberOfStops"]
+            length = params['length']
+            types = params['type']
 
         except:
             return "Paramètres nécessaires: length (int), type [string, ...]", 400
 
+        if not isinstance(starting_point, geojson.Point):
+            return "startingPoint doit être un point", 400
+
+        if not isinstance(nb_of_stops, int):
+            return "numberOfStops doit être un int", 400
+
+        if not isinstance(length, int):
+            return "length doit être un int", 400
+
+        if not isinstance(types, list):
+            return "type doit être un list", 400
+        else:
+            for type in types:
+                if not isinstance(type, str):
+                    return "type doit être un list de string", 400
+
         all_restaurants = []
-        road = []
+        segments_parcours = []
         total_length = 0
 
         query = "MATCH (a:Restaurant)-[:est_proche_de]-(b:Point{latitude:"+ str(starting_point["coordinates"][0]) + ", longitude:"+ str(starting_point["coordinates"][1]) +"}) WITH a, a.Categories AS categories UNWIND categories AS category WITH a, category WHERE category IN "+ str(types) + " RETURN a.Nom"
@@ -162,7 +173,7 @@ def parcours():
         application.logger.info(current)
 
         while total_length < length and len(all_restaurants) < nb_of_stops:
-            res = session.run("MATCH p=(a:Restaurant{Nom:\""+ current +"\"})-[r:chemin*]->(b:Restaurant) WITH p, b.Categories AS categories UNWIND categories as category WITH p, category WHERE category IN "+ str(types) +" RETURN p")
+            res = session.run("MATCH p=(a:Restaurant{Nom:\""+ current +"\"})-[r:chemin*]-(b:Restaurant) WITH p, b.Categories AS categories UNWIND categories as category WITH p, category WHERE category IN "+ str(types) +" RETURN p")
 
             path = None
             for record in res:
@@ -172,19 +183,26 @@ def parcours():
             if path:
                 node = path.start_node
                 if node not in all_restaurants:
-                    all_restaurants.append(node)
+                    p = geojson.Point(node.get("position"))
+                    all_restaurants.append(geojson.Feature(geometry=p, properties={"name": node.get("Nom"), "type": str(node.get("Categories"))}))
                 total_length = total_length + total_shape_length(path)
+                raw_line = line_string(path)
+                formated_line = []
+                for ix in range(0, len(raw_line), 2):
+                    formated_line.append([raw_line[ix], raw_line[ix+1]])
+                l = geojson.LineString(formated_line)
+                segments_parcours.append(geojson.Feature(geometry=l, properties={"length": total_shape_length(path)})) 
                 current = path.end_node.get("Nom")
-                road.append(line_string(path))        
+
             else:
                 break
-
-        application.logger.info(all_restaurants)
-        application.logger.info(total_length)
+        
+    parcours = []
+    for ix in range(len(all_restaurants)):
+        parcours.append(all_restaurants[ix])
+        parcours.append(segments_parcours[ix])
             
-    return jsonify({
-        "message": "ok"
-    })
+    return geojson.FeatureCollection(parcours)
 
 @application.route('/map')
 def map_func():
